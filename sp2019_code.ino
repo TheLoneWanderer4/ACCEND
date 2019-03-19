@@ -43,15 +43,11 @@ int CollectDelay = 1000;
 // Baromiter sensor definition
 Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
 
-//I2C Sensor
-Adafruit_LSM9DS1 lsmA = Adafruit_LSM9DS1();
+// First BMP280 sensor
+Adafruit_BMP280 bmeA;
 
-//Software-defined SPI
-Adafruit_LSM9DS1 lsmB = Adafruit_LSM9DS1(UNIVERSAL_SCK, UNIVERSAL_MISO, UNIVERSAL_MOSI, LSM9DS1_XGCS, LSM9DS1_MCS);
-
-Adafruit_BMP280 bmeA; // first sensor
-
-Adafruit_BMP280 bmeB; // second BME sensor
+// Second BMP280 sensor
+Adafruit_BMP280 bmeB;
 
 uint32_t timer;
 char Filename[] = "18F000.csv";
@@ -64,27 +60,12 @@ void setup() {
   timer = millis();
   pinMode(GreenLED, OUTPUT);
 
-  //Init and find first LSM
-  if (!lsmA.begin()) {
-        Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
-        while (1);
-  } else {
-        lsmA.setupAccel(lsmA.LSM9DS1_ACCELRANGE_16G);
-        lsmA.setupMag(lsmA.LSM9DS1_MAGGAIN_8GAUSS);
-        lsmA.setupGyro(lsmA.LSM9DS1_GYROSCALE_2000DPS);
-  }
-
-  if (!lsmB.begin()) {
-        Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
-        while (1);
-  } else {
-        lsmB.setupAccel(lsmB.LSM9DS1_ACCELRANGE_16G);
-        lsmB.setupMag(lsmB.LSM9DS1_MAGGAIN_8GAUSS);
-        lsmB.setupGyro(lsmB.LSM9DS1_GYROSCALE_2000DPS);
-  }
-
   if (!bmeA.begin()) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    Serial.println("Could not find a valid BMP280 A sensor, check wiring!");
+    while (1);
+  }
+  if (!bmeB.begin()) {
+    Serial.println("Could not find a valid BMP280 B sensor, check wiring!");
     while (1);
   }
 
@@ -153,58 +134,20 @@ void loop() {
     Serial.print("VBat: " );
     Serial.println(measuredvbat);
 
-
-    // put your main code here, to run repeatedly:
-      lsmA.read();  /* ask it to read in the data */
-
-    /* Get a new sensor event */
-      sensors_event_t a, m, g, temp;
-
-      lsmA.getEvent(&a, &m, &g, &temp);
-      RecordData(dataFile, " Accel 1 X: ", a.acceleration.x);
-      RecordData(dataFile, " Accel 1 Y: ", a.acceleration.y);
-      RecordData(dataFile, " Accel 1 Z: ", a.acceleration.z);
-      Serial.println();
-
-      RecordData(dataFile, " Mag 1 X: ", m.magnetic.x);
-      RecordData(dataFile, " Mag 1 Y: ", m.magnetic.y);
-      RecordData(dataFile, " Mag 1 Z: ", m.magnetic.z);
-      Serial.println();
-
-      RecordData(dataFile, " Gyro 1 X: ", g.gyro.x);
-      RecordData(dataFile, " Gyro 1 Y: ", g.gyro.y);
-      RecordData(dataFile, " Gyro 1 Z: ", g.gyro.z);
-
-      Serial.println();
-
-    // SECOND LSM CODE
-    lsmB.read();  /* ask it to read in the data */
-
-    /* Get a new sensor event */
-
-    lsmB.getEvent(&a, &m, &g, &temp);
-
-    RecordData(dataFile, " Accel 2 X: ", a.acceleration.x);
-    RecordData(dataFile, " Accel 2 Y: ", a.acceleration.y);
-    RecordData(dataFile, " Accel 2 Z: ", a.acceleration.z);
-    Serial.println();
-
-    RecordData(dataFile, " Mag 2 X: ", m.magnetic.x);
-    RecordData(dataFile, " Mag 2 Y: ", m.magnetic.y);
-    RecordData(dataFile, " Mag 2 Z: ", m.magnetic.z);
-    Serial.println();
-
-    RecordData(dataFile, " Gyro 2 X: ", g.gyro.x);
-    RecordData(dataFile, " Gyro 2 Y: ", g.gyro.y);
-    RecordData(dataFile, " Gyro 2 Z: ", g.gyro.z);
-
-    Serial.println();
-
-
-
+    '''
+    Record Data for the BME A senor
+    '''
     RecordData(dataFile, " Temperature (C): ", bmeA.readTemperature());
     RecordData(dataFile, " Pressure (Pa): ", bmeA.readPressure());
     RecordData(dataFile, " Altitude (m): ", bmeA.readAltitude(1017)); // 1017 = local PHX hPa
+    Serial.println();
+
+    '''
+    Record Data for the BME B senor
+    '''
+    RecordData(dataFile, " Temperature (C): ", bmeB.readTemperature());
+    RecordData(dataFile, " Pressure (Pa): ", bmeB.readPressure());
+    RecordData(dataFile, " Altitude (m): ", bmeB.readAltitude(1017)); // 1017 = local PHX hPa
     Serial.println();
 
     long turbineValue = analogRead(Turbine1Pin);
