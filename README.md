@@ -1,3 +1,4 @@
+<h1>Sping 2019 ASCEND</h1>
 Git Set-Up:
 1. To clone the remote repo to your local machine, install Git @ https://git-scm.com/downloads. You should
 have Git Bash, Git CMD, and Git GUI. We will use Git Bash.
