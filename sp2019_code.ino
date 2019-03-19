@@ -5,6 +5,7 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
 #include <servo.h>
+#include <Adafruit_MPL3115A2.h>
 
 #define UNIVERSAL_SCK 9
 #define UNIVERSAL_MISO 12
@@ -25,6 +26,9 @@
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
+
+// Baromiter sensor definition
+Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
 
 //I2C Sensor
 Adafruit_LSM9DS1 lsmA = Adafruit_LSM9DS1();
