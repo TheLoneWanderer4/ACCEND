@@ -26,11 +26,6 @@
 //set Delay Between Data Points
 int CollectDelay = 1000;
 
-//Servo for the solar pannel
-Servo solar_pannel;
-// Positon of teh solar pannel
-int solar_pannel_pos = 0;
-
 //I2C Sensor
 Adafruit_LSM9DS1 lsmA = Adafruit_LSM9DS1();
 
