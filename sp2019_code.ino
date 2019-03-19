@@ -4,6 +4,7 @@
 #include <Adafruit_LSM9DS1.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
+#include <servo.h>
 
 #define UNIVERSAL_SCK 9
 #define UNIVERSAL_MISO 12
@@ -44,7 +45,7 @@ void setup() {
   Serial.begin(115200);
   timer = millis();
   pinMode(GreenLED, OUTPUT);
-  
+
   //Init and find first LSM
   if (!lsmA.begin()) {
         Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
@@ -54,7 +55,7 @@ void setup() {
         lsmA.setupMag(lsmA.LSM9DS1_MAGGAIN_8GAUSS);
         lsmA.setupGyro(lsmA.LSM9DS1_GYROSCALE_2000DPS);
   }
-  
+
   if (!lsmB.begin()) {
         Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
         while (1);
@@ -64,7 +65,7 @@ void setup() {
         lsmB.setupGyro(lsmB.LSM9DS1_GYROSCALE_2000DPS);
   }
 
-  if (!bmeA.begin()) {  
+  if (!bmeA.begin()) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
@@ -115,9 +116,9 @@ void loop() {
   // record data String after CollectDelay
   if (millis() - timer > CollectDelay)
   {
-    
+
     File dataFile = SD.open(Filename, FILE_WRITE);
-    
+
     //check if dataFile Opend
     if (!dataFile)
     {
@@ -136,35 +137,35 @@ void loop() {
 
 
     // put your main code here, to run repeatedly:
-      lsmA.read();  /* ask it to read in the data */ 
-  
-    /* Get a new sensor event */ 
+      lsmA.read();  /* ask it to read in the data */
+
+    /* Get a new sensor event */
       sensors_event_t a, m, g, temp;
-  
-      lsmA.getEvent(&a, &m, &g, &temp); 
+
+      lsmA.getEvent(&a, &m, &g, &temp);
       RecordData(dataFile, " Accel 1 X: ", a.acceleration.x);
       RecordData(dataFile, " Accel 1 Y: ", a.acceleration.y);
       RecordData(dataFile, " Accel 1 Z: ", a.acceleration.z);
       Serial.println();
-      
+
       RecordData(dataFile, " Mag 1 X: ", m.magnetic.x);
       RecordData(dataFile, " Mag 1 Y: ", m.magnetic.y);
       RecordData(dataFile, " Mag 1 Z: ", m.magnetic.z);
       Serial.println();
-      
+
       RecordData(dataFile, " Gyro 1 X: ", g.gyro.x);
       RecordData(dataFile, " Gyro 1 Y: ", g.gyro.y);
       RecordData(dataFile, " Gyro 1 Z: ", g.gyro.z);
-    
+
       Serial.println();
-  
+
     // SECOND LSM CODE
-    lsmB.read();  /* ask it to read in the data */ 
-  
-    /* Get a new sensor event */ 
-  
-    lsmB.getEvent(&a, &m, &g, &temp); 
-  
+    lsmB.read();  /* ask it to read in the data */
+
+    /* Get a new sensor event */
+
+    lsmB.getEvent(&a, &m, &g, &temp);
+
     RecordData(dataFile, " Accel 2 X: ", a.acceleration.x);
     RecordData(dataFile, " Accel 2 Y: ", a.acceleration.y);
     RecordData(dataFile, " Accel 2 Z: ", a.acceleration.z);
@@ -178,9 +179,9 @@ void loop() {
     RecordData(dataFile, " Gyro 2 X: ", g.gyro.x);
     RecordData(dataFile, " Gyro 2 Y: ", g.gyro.y);
     RecordData(dataFile, " Gyro 2 Z: ", g.gyro.z);
-  
+
     Serial.println();
-    
+
 
 
     RecordData(dataFile, " Temperature (C): ", bmeA.readTemperature());
@@ -195,7 +196,7 @@ void loop() {
 
     turbineValue = analogRead(Turbine2Pin);
     RecordData(dataFile, " Turbine 2 Volt (V): ", (turbineValue*3.3)/4095);
-    
+
     timer = millis(); // reset the timer
     Serial.println();
     digitalWrite(GreenLED, LOW);
