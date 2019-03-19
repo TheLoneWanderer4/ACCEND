@@ -2,10 +2,23 @@
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_LSM9DS1.h>
-#include <Adafruit_BMP280.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
+
 #include <servo.h>
 #include <Adafruit_MPL3115A2.h>
+#include <Adafruit_BMP280.h>
+
+
+// Links for the MPL3115A2 sensor
+'''
+https://www.adafruit.com/product/1893
+https://github.com/adafruit/Adafruit_MPL3115A2_Library
+'''
+
+// Links for the BMP280
+'''
+https://www.adafruit.com/product/2652
+'''
 
 #define UNIVERSAL_SCK 9
 #define UNIVERSAL_MISO 12
@@ -37,6 +50,8 @@ Adafruit_LSM9DS1 lsmA = Adafruit_LSM9DS1();
 Adafruit_LSM9DS1 lsmB = Adafruit_LSM9DS1(UNIVERSAL_SCK, UNIVERSAL_MISO, UNIVERSAL_MOSI, LSM9DS1_XGCS, LSM9DS1_MCS);
 
 Adafruit_BMP280 bmeA; // first sensor
+
+Adafruit_BMP280 bmeB; // second BME sensor
 
 uint32_t timer;
 char Filename[] = "18F000.csv";
