@@ -3,22 +3,20 @@
 #include <SD.h>
 #include <Adafruit_LSM9DS1.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
-
-#include <servo.h>
 #include <Adafruit_MPL3115A2.h>
 #include <Adafruit_BMP280.h>
-
+#include <Adafruit_PWMServoDriver.h>
 
 // Links for the MPL3115A2 sensor
-'''
+/*
 https://www.adafruit.com/product/1893
 https://github.com/adafruit/Adafruit_MPL3115A2_Library
-'''
+*/
 
 // Links for the BMP280
-'''
+/*
 https://www.adafruit.com/product/2652
-'''
+*/
 
 #define UNIVERSAL_SCK 9
 #define UNIVERSAL_MISO 12
@@ -49,6 +47,9 @@ Adafruit_BMP280 bmeA;
 // Second BMP280 sensor
 Adafruit_BMP280 bmeB;
 
+// Servo
+Adafruit_PWMServoDriver solar_pannel_servo = Adafruit_PWMServoDriver();
+
 uint32_t timer;
 char Filename[] = "18F000.csv";
 int first0Index = 3;
@@ -59,6 +60,13 @@ void setup() {
   Serial.begin(115200);
   timer = millis();
   pinMode(GreenLED, OUTPUT);
+
+  if(!solar_pannel_servo.begin()){
+    Serial.println("Could not find a valid Servo, check wiring!");
+    while (1);
+  }
+
+  solar_pannel_servo.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
 
   if (!bmeA.begin()) {
     Serial.println("Could not find a valid BMP280 A sensor, check wiring!");
