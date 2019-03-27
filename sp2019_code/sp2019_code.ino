@@ -14,6 +14,7 @@
 #define VBATPIN A7
 #define GASPIN_A A0 // powered by solar panels
 #define GASPIN_B A2 // bat powered
+#define SERVONUM 0
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
@@ -39,7 +40,7 @@ void setup() {
 
   solar_panel_servo.begin();
 
-  solar_panel_servo.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
+  solar_panel_servo.setPWM(SERVONUM, 0, 0);  // Analog servos run at ~60 Hz updates
 
   if (!bmeA.begin(BMEA_ADDR)) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
