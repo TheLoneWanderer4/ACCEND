@@ -1,9 +1,20 @@
-#include <Wire.h>
+git#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPL3115A2.h>
+#include <Adafruit_GPS.h>
+
+// what's the name of the hardware serial port?
+#define GPSSerial Serial1
+
+// Connect to the GPS on the hardware port
+Adafruit_GPS GPS(&GPSSerial);
+     
+// Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
+// Set to 'true' if you want to debug and listen to the raw GPS sentences
+#define GPSECHO false
 
 //Helpful numbers
 #define BMEA_ADDR 0x76
@@ -30,7 +41,16 @@ int second0Index = 4;
 int third0Index = 5;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200); // we want a fast baudrate now to listen to GPS
+  // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
+  GPS.begin(9600);
+  // turn on RMC (recommended minimum) and GGA (fix data) including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  // Set the update rate
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ); // 1 Hz update rate
+  // For the parsing code to work nicely and have time to sort thru the data, and
+  // print it out we don't suggest using anything higher than 1 Hz
+     
   timer = millis();
   pinMode(YELLOW_LED, OUTPUT);
 
@@ -68,6 +88,8 @@ void setup() {
 
       //NOTE: SD formatting in the .csv file requires the headers have no whitespace
       dataFile.println(
+        "Time, Date, Hour, Minute, Seconds, Millis,"
+        "Speed(knots), Latitude(Deg), Longitude(Deg), Sat#,"
         "Temp0(C), Pressure0(Pa), Altitude0(m),"
         "Temp1(C), Pressure1(Pa), Altitude1(m),"
         "Temp2(C), Pressure2(Pa), Altitude2(m),"
@@ -87,6 +109,15 @@ void setup() {
 void loop() {
   if (timer > millis()) timer = millis(); //reset if it wraps
 
+  if (GPS.newNMEAreceived()) {
+    // a tricky thing here is if we print the NMEA sentence, or data
+    // we end up not listening and catching other sentences!
+    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
+    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
+    if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
+      return; // we can fail to parse a sentence in which case we should just wait for another
+  }
+
   // record data String after CollectDelay
   if (millis() - timer > CollectDelay)
   {
@@ -101,6 +132,11 @@ void loop() {
     } else {
       digitalWrite(YELLOW_LED, HIGH);
     }
+
+    // Record GPS data first
+    // read data from the GPS in the 'main loop'
+    RecordTimeDate(dataFile);
+    RecordGPS(dataFile);
 
     float measuredvbat = voltageFromADC(analogRead(VBATPIN) * 4, 3.3);
     Serial.print("VBat: " );
@@ -147,6 +183,80 @@ void RecordData(File dataFile, char* Dataname, float data) {
   dataFile.print(",");
 
 }
+
+void RecordTimeDate(File dataFile) {
+
+  int gps_hour = GPS.hour - 7; // we have an offset in our GPS
+  int gps_day = GPS.day;
+
+  //fix offset if it goes to the next day
+  if (gps_hour <= 0) {
+    gps_hour = 24 + gps_hour;
+    gps_day --;
+  }
+
+  //keep it out of military time
+  if (gps_hour > 12) {
+    gps_hour -= 12;
+  }
+
+  Serial.print("millis ");
+  Serial.print(millis(), DEC);
+  Serial.print(" Date/Time ");
+  Serial.print(GPS.month, DEC);
+  Serial.print("/");
+  Serial.print(gps_day, DEC);
+  Serial.print(", ");
+  Serial.print(gps_hour);
+  Serial.print(":");
+  Serial.print(GPS.minute);
+  Serial.print(":");
+  Serial.print(GPS.seconds);
+  Serial.print(":");
+  Serial.print(GPS.milliseconds);
+  Serial.print(",");
+
+  dataFile.print(millis(), DEC);
+  dataFile.print(",");
+  dataFile.print(GPS.month, DEC);
+  dataFile.print("/");
+  dataFile.print(gps_day, DEC);
+  dataFile.print(",");
+  dataFile.print(gps_hour);
+  dataFile.print(",");
+  dataFile.print(GPS.minute);
+  dataFile.print(",");
+  dataFile.print(GPS.seconds);
+  dataFile.print(",");
+  dataFile.print(GPS.milliseconds);
+  dataFile.print(",");
+}
+
+
+void RecordGPS(File dataFile) {
+  //GPS data
+  Serial.print(" knots ");
+  Serial.print(GPS.speed);
+  Serial.print(",");
+  Serial.print("Location degrees: ");
+  Serial.print(GPS.latitudeDegrees, 4);
+  Serial.print(", ");
+  Serial.print(GPS.longitudeDegrees, 4);
+  Serial.print(", ");
+  Serial.print(" sat ");
+  Serial.print((int)GPS.satellites);
+  Serial.print(",");
+  dataFile.print(GPS.speed);
+  dataFile.print(",");
+  dataFile.print(GPS.latitudeDegrees, 4);
+  dataFile.print(", ");
+  dataFile.print(GPS.longitudeDegrees, 4);
+  dataFile.print(", ");
+  dataFile.print((int)GPS.satellites);
+  dataFile.print(",");
+
+}
+
 
 float voltageFromADC(float received_val, float reference) {
   float measured_val = received_val;
