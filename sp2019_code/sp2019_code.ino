@@ -100,6 +100,7 @@ void setup() {
 void loop() {
   if (timer > millis()) timer = millis(); //reset if it wraps
 
+  // Logic to extend and retract the solar pannels, with the data from the altimiter being compared against a constant 
   if ((bmeA.readAltitude(SEALEVELPRESSURE_HPA) >= EXTEND_ALTITUDE) && (extended == false)){
     extend_solar_pannel(solar_panel_servo);
     extended = true;
