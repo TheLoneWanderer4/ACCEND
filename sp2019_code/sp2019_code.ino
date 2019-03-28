@@ -19,6 +19,7 @@
 #define COUNTERCLOCKWISE 300
 #define SAFEDEAD 0    //Full stop Servo
 #define EXTEND_ALTITUDE 2791.66 //in meteres
+#define EXTENSION_DELAY 500 // in ms
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
@@ -36,6 +37,7 @@ char Filename[] = "19S000.csv";
 int first0Index = 3;
 int second0Index = 4;
 int third0Index = 5;
+bool extended = false;
 
 void setup() {
   Serial.begin(9600);
@@ -93,11 +95,19 @@ void setup() {
   Serial.print("Writing to ");
   Serial.println(Filename);
 
-
 }
 
 void loop() {
   if (timer > millis()) timer = millis(); //reset if it wraps
+
+  if ((bmeA.readAltitude(SEALEVELPRESSURE_HPA) >= EXTEND_ALTITUDE) && (extended == false)){
+    extend_solar_pannel(solar_panel_servo);
+    extended = true;
+  }
+  else if ((bmeA.readAltitude(SEALEVELPRESSURE_HPA) <= EXTEND_ALTITUDE) && (extended == true)){
+    retract_solar_pannel(solar_panel_servo);
+    extended = false;
+  }
 
   // record data String after CollectDelay
   if (millis() - timer > CollectDelay)
@@ -148,8 +158,25 @@ void loop() {
     dataFile.close();
   }
 }
-void extend_solar_pannel(solar_pannel_servo) {
 
+void extend_solar_pannel(Adafruit_PWMServoDriver solar_pannel_servo) {
+  // Function to extend the solar pannel
+  // set the servo rotating COUNTERCLOCKWISE
+  // delays for a length of time, enough time for the pannel to extend
+  // stops the servo
+  solar_pannel_servo.setPWM(SERVONUM, 0, COUNTERCLOCKWISE);
+  delay(EXTENSION_DELAY);
+  solar_pannel_servo.setPWM(SERVONUM, 0, SAFEDEAD);
+}
+
+void retract_solar_pannel(Adafruit_PWMServoDriver solar_pannel_servo) {
+  // Function to retract the solar pannel
+  // set the servo rotating COUNTERCLOCKWISE
+  // delays for a length of time, enough time for the pannel to be retracted
+  // stops the servo
+  solar_pannel_servo.setPWM(SERVONUM, 0, CLOCKWISE);
+  delay(EXTENSION_DELAY);
+  solar_pannel_servo.setPWM(SERVONUM, 0, SAFEDEAD);
 }
 
 void RecordData(File dataFile, char* Dataname, float data) {
