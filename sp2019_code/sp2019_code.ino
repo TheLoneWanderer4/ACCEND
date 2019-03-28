@@ -1,4 +1,4 @@
-git#include <Wire.h>
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_BME280.h>
@@ -24,6 +24,8 @@ Adafruit_GPS GPS(&GPSSerial);
 #define VBATPIN A7
 #define GASPIN_A A0 // powered by solar panels
 #define GASPIN_B A2 // bat powered
+#define SOLAR_ALT_MIN 2791.66 // height of mt lemmon in meters
+#define SOLAR_ALT_MAX 21330 // 70,000 ft to meters
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
@@ -39,6 +41,9 @@ char Filename[] = "19S000.csv";
 int first0Index = 3;
 int second0Index = 4;
 int third0Index = 5;
+
+bool panelsRaised = false;
+bool stayClosed = false;
 
 void setup() {
   Serial.begin(115200); // we want a fast baudrate now to listen to GPS
@@ -88,9 +93,9 @@ void setup() {
 
       //NOTE: SD formatting in the .csv file requires the headers have no whitespace
       dataFile.println(
-        "Time, Date, Hour, Minute, Seconds, Millis,"
-        "Speed(knots), Latitude(Deg), Longitude(Deg), Sat#,"
-        "Temp0(C), Pressure0(Pa), Altitude0(m),"
+        "Time, Date, Hour, Minute, Seconds,"
+        "Altitude, Speed(knots), Latitude(Deg), Longitude(Deg), Sat#,"
+        "Temp0(C), Pressure0(Hg), Altitude0(m),"
         "Temp1(C), Pressure1(Pa), Altitude1(m),"
         "Temp2(C), Pressure2(Pa), Altitude2(m),"
         "Gas1Voltage(V),"
@@ -106,14 +111,109 @@ void setup() {
 
 }
 
+//HELPER FUNCTIONS
+
+
+void RecordData(File dataFile, char* Dataname, float data) {
+
+  Serial.print(Dataname);
+  Serial.print(data, 4);
+  Serial.print(",");
+  dataFile.print(data, 4);
+  dataFile.print(",");
+
+}
+
+void RecordTimeDate(File dataFile) {
+
+  int gps_hour = GPS.hour - 19; // we have an offset in our GPS
+  int gps_day = GPS.day;
+
+  //fix offset if it goes to the next day
+  if (gps_hour <= 0) {
+    gps_hour = 24 + gps_hour;
+    gps_day --;
+  }
+
+  //keep it out of military time
+  if (gps_hour > 12) {
+    gps_hour -= 12;
+  }
+  Serial.print(" Date/Time ");
+  Serial.print(GPS.month, DEC);
+  Serial.print("/");
+  Serial.print(gps_day, DEC);
+  Serial.print(", ");
+  Serial.print(gps_hour);
+  Serial.print(":");
+  Serial.print(GPS.minute);
+  Serial.print(":");
+  Serial.print(GPS.seconds);
+  Serial.print(":");
+  Serial.print(GPS.milliseconds);
+  Serial.print(",");
+
+  dataFile.print(millis(), DEC);
+  dataFile.print(",");
+  dataFile.print(GPS.month, DEC);
+  dataFile.print("/");
+  dataFile.print(gps_day, DEC);
+  dataFile.print(",");
+  dataFile.print(gps_hour);
+  dataFile.print(",");
+  dataFile.print(GPS.minute);
+  dataFile.print(",");
+  dataFile.print(GPS.seconds);
+  dataFile.print(",");
+}
+
+
+void RecordGPS(File dataFile) {
+  //GPS data
+  Serial.print(" altitude ");
+  Serial.print(GPS.altitude);
+  Serial.print(",");
+  Serial.print(" knots ");
+  Serial.print(GPS.speed);
+  Serial.print(",");
+  Serial.print("Location degrees: ");
+  Serial.print(GPS.latitudeDegrees, 4);
+  Serial.print(", ");
+  Serial.print(GPS.longitudeDegrees, 4);
+  Serial.print(", ");
+  Serial.print(" sat ");
+  Serial.print((int)GPS.satellites);
+  Serial.print(",");
+  dataFile.print(GPS.altitude);
+  dataFile.print(",");
+  dataFile.print(GPS.speed);
+  dataFile.print(",");
+  dataFile.print(GPS.latitudeDegrees, 4);
+  dataFile.print(", ");
+  dataFile.print(GPS.longitudeDegrees, 4);
+  dataFile.print(", ");
+  dataFile.print((int)GPS.satellites);
+  dataFile.print(",");
+
+}
+
+
+float voltageFromADC(float received_val, float reference) {
+  float measured_val = received_val;
+  measured_val *= reference;  // Multiply by reference voltage
+  measured_val /= 4095; // convert to voltage
+  return measured_val;
+}
+
 void loop() {
   if (timer > millis()) timer = millis(); //reset if it wraps
-
+  // read data from the GPS in the 'main loop'
+  char c = GPS.read();
+  
   if (GPS.newNMEAreceived()) {
     // a tricky thing here is if we print the NMEA sentence, or data
     // we end up not listening and catching other sentences!
     // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
-    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
   }
@@ -143,7 +243,7 @@ void loop() {
     Serial.println(measuredvbat);
     
     RecordData(dataFile, " Temperature 0 (C): ", baro.getTemperature());
-    RecordData(dataFile, " Pressure 0 (Pa): ", baro.getPressure());
+    RecordData(dataFile, " Pressure 0 (Hg): ", baro.getPressure());
     RecordData(dataFile, " Altitude 0 (m): ", baro.getAltitude());
     Serial.println();
 
@@ -165,102 +265,22 @@ void loop() {
     gasValue = analogRead(GASPIN_B);
     RecordData(dataFile, " Gas 2 Volt (V): ", voltageFromADC(gasValue, 3.3));
 
+    float avgAltitude = (baro.getAltitude() + bmeA.readAltitude(SEALEVELPRESSURE_HPA) + bmeB.readAltitude(SEALEVELPRESSURE_HPA)) / 3.0;
+    
+    // handle panels
+    if (!stayClosed && !panelsRaised && (avgAltitude > SOLAR_ALT_MIN)) {
+      panelsRaised = true;
+      // raise panels
+    } else if (!stayClosed && panelsRaised && (avgAltitude > SOLAR_ALT_MAX)) {
+      panelsRaised = false;
+      stayClosed = true;
+      //close panels
+    }
+
     timer = millis(); // reset the timer
     Serial.println();
     digitalWrite(YELLOW_LED, LOW);
     dataFile.println();
     dataFile.close();
   }
-}
-
-
-void RecordData(File dataFile, char* Dataname, float data) {
-
-  Serial.print(Dataname);
-  Serial.print(data, 4);
-  Serial.print(",");
-  dataFile.print(data, 4);
-  dataFile.print(",");
-
-}
-
-void RecordTimeDate(File dataFile) {
-
-  int gps_hour = GPS.hour - 7; // we have an offset in our GPS
-  int gps_day = GPS.day;
-
-  //fix offset if it goes to the next day
-  if (gps_hour <= 0) {
-    gps_hour = 24 + gps_hour;
-    gps_day --;
-  }
-
-  //keep it out of military time
-  if (gps_hour > 12) {
-    gps_hour -= 12;
-  }
-
-  Serial.print("millis ");
-  Serial.print(millis(), DEC);
-  Serial.print(" Date/Time ");
-  Serial.print(GPS.month, DEC);
-  Serial.print("/");
-  Serial.print(gps_day, DEC);
-  Serial.print(", ");
-  Serial.print(gps_hour);
-  Serial.print(":");
-  Serial.print(GPS.minute);
-  Serial.print(":");
-  Serial.print(GPS.seconds);
-  Serial.print(":");
-  Serial.print(GPS.milliseconds);
-  Serial.print(",");
-
-  dataFile.print(millis(), DEC);
-  dataFile.print(",");
-  dataFile.print(GPS.month, DEC);
-  dataFile.print("/");
-  dataFile.print(gps_day, DEC);
-  dataFile.print(",");
-  dataFile.print(gps_hour);
-  dataFile.print(",");
-  dataFile.print(GPS.minute);
-  dataFile.print(",");
-  dataFile.print(GPS.seconds);
-  dataFile.print(",");
-  dataFile.print(GPS.milliseconds);
-  dataFile.print(",");
-}
-
-
-void RecordGPS(File dataFile) {
-  //GPS data
-  Serial.print(" knots ");
-  Serial.print(GPS.speed);
-  Serial.print(",");
-  Serial.print("Location degrees: ");
-  Serial.print(GPS.latitudeDegrees, 4);
-  Serial.print(", ");
-  Serial.print(GPS.longitudeDegrees, 4);
-  Serial.print(", ");
-  Serial.print(" sat ");
-  Serial.print((int)GPS.satellites);
-  Serial.print(",");
-  dataFile.print(GPS.speed);
-  dataFile.print(",");
-  dataFile.print(GPS.latitudeDegrees, 4);
-  dataFile.print(", ");
-  dataFile.print(GPS.longitudeDegrees, 4);
-  dataFile.print(", ");
-  dataFile.print((int)GPS.satellites);
-  dataFile.print(",");
-
-}
-
-
-float voltageFromADC(float received_val, float reference) {
-  float measured_val = received_val;
-  measured_val *= reference;  // Multiply by reference voltage
-  measured_val /= 4095; // convert to voltage
-  return measured_val;
 }
