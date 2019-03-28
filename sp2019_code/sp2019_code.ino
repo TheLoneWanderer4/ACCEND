@@ -15,6 +15,10 @@
 #define GASPIN_A A0 // powered by solar panels
 #define GASPIN_B A2 // bat powered
 #define SERVONUM 0
+#define CLOCKWISE 500
+#define COUNTERCLOCKWISE 300
+#define SAFEDEAD 0    //Full stop Servo
+#define EXTEND_ALTITUDE 2791.66 //in meteres
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
@@ -113,7 +117,7 @@ void loop() {
     float measuredvbat = voltageFromADC(analogRead(VBATPIN) * 4, 3.3);
     Serial.print("VBat: " );
     Serial.println(measuredvbat);
-    
+
     RecordData(dataFile, " Temperature 0 (C): ", baro.getTemperature());
     RecordData(dataFile, " Pressure 0 (Pa): ", baro.getPressure());
     RecordData(dataFile, " Altitude 0 (m): ", baro.getAltitude());
@@ -144,7 +148,9 @@ void loop() {
     dataFile.close();
   }
 }
+void extend_solar_pannel(solar_pannel_servo) {
 
+}
 
 void RecordData(File dataFile, char* Dataname, float data) {
 
